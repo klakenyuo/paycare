@@ -48,6 +48,21 @@ def etl_process(input_file, output_file):
             load_data(transformed_data, output_file)
 
 if __name__ == "__main__":
-    input_file = 'input_data.csv'
-    output_file = 'output_data.csv'
+    import os
+    
+    # Support for containerized environment with volume mounts
+    input_file = os.getenv('INPUT_FILE', 'data/input_data.csv')
+    output_file = os.getenv('OUTPUT_FILE', 'output/output_data.csv')
+    
+    # Ensure output directory exists
+    output_dir = os.path.dirname(output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    print(f"🔄 Starting ETL process...")
+    print(f"📂 Input file: {input_file}")
+    print(f"📂 Output file: {output_file}")
+    
     etl_process(input_file, output_file)
+    
+    print(f"✅ ETL process completed successfully!")
