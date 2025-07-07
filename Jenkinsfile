@@ -19,29 +19,64 @@ pipeline {
         stage('1. Clone Repository') {
             steps {
                 script {
-                    echo "🔄 Cloning repository..."
+                    echo "🔄 Checking repository status..."
                     try {
-                        // Nettoyage du workspace
-                        cleanWs()
+                        // Check if we're in an SCM context
+                        def isSCMContext = binding.hasVariable('scm') && scm != null
                         
-                        // Clone du repository
-                        checkout scm
+                        if (isSCMContext) {
+                            echo "📥 SCM context detected - cloning repository..."
+                            // Nettoyage du workspace
+                            cleanWs()
+                            
+                            // Clone du repository
+                            checkout scm
+                            
+                            // Affichage des informations du commit
+                            sh '''
+                                echo "📋 Repository Information:"
+                                echo "Branch: ${GIT_BRANCH}"
+                                echo "Commit: ${GIT_COMMIT}"
+                                echo "Author: $(git log -1 --pretty=format:'%an <%ae>')"
+                                echo "Message: $(git log -1 --pretty=format:'%s')"
+                                echo "Files changed in this commit:"
+                                git diff-tree --no-commit-id --name-only -r ${GIT_COMMIT} || echo "No files changed"
+                            '''
+                        } else {
+                            echo "📁 Non-SCM context detected - using workspace files..."
+                            // Vérifier que les fichiers nécessaires sont présents
+                            sh '''
+                                echo "📋 Workspace Information:"
+                                echo "Current directory: $(pwd)"
+                                echo "Files present:"
+                                ls -la
+                                
+                                # Vérifier les fichiers essentiels
+                                if [ ! -f "etl.py" ]; then
+                                    echo "❌ etl.py not found in workspace"
+                                    exit 1
+                                fi
+                                if [ ! -f "test_etl.py" ]; then
+                                    echo "❌ test_etl.py not found in workspace"
+                                    exit 1
+                                fi
+                                if [ ! -f "requirements.txt" ]; then
+                                    echo "❌ requirements.txt not found in workspace"
+                                    exit 1
+                                fi
+                                if [ ! -f "Dockerfile" ]; then
+                                    echo "❌ Dockerfile not found in workspace"
+                                    exit 1
+                                fi
+                                
+                                echo "✅ All required files are present"
+                            '''
+                        }
                         
-                        // Affichage des informations du commit
-                        sh '''
-                            echo "📋 Repository Information:"
-                            echo "Branch: ${GIT_BRANCH}"
-                            echo "Commit: ${GIT_COMMIT}"
-                            echo "Author: $(git log -1 --pretty=format:'%an <%ae>')"
-                            echo "Message: $(git log -1 --pretty=format:'%s')"
-                            echo "Files changed in this commit:"
-                            git diff-tree --no-commit-id --name-only -r ${GIT_COMMIT} || echo "No files changed"
-                        '''
-                        
-                        echo "✅ Repository cloned successfully"
+                        echo "✅ Repository/workspace ready"
                     } catch (Exception e) {
-                        echo "❌ Failed to clone repository: ${e.getMessage()}"
-                        error("Repository clone failed")
+                        echo "❌ Failed to prepare repository: ${e.getMessage()}"
+                        error("Repository preparation failed")
                     }
                 }
             }
